@@ -96,7 +96,7 @@ FLASH_ALGO = {
 }
 
 class STM32L496xx(CoreSightTarget):
-    print("Using stm32l496xx config")
+    
     VENDOR = "STMicroelectronics"
     MEMORY_MAP = MemoryMap(
         FlashRegion(name='flash', start=0x08000000, length=0x100000,
@@ -110,7 +110,7 @@ class STM32L496xx(CoreSightTarget):
     
     def __init__(self, session):
         super(STM32L496xx, self).__init__(session, self.MEMORY_MAP)
-        #self._svd_location = SVDFile.from_builtin("STM32L4x2.svd")
+        self._svd_location = SVDFile.from_builtin("STM32L496.svd")
         
     def post_connect_hook(self):
         self.write32(DBGMCU.CR, DBGMCU.CR_VALUE)
