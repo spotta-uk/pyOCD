@@ -15,10 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import bincopy
 import errno
+import io
 import itertools
 import logging
 import os
+
 from typing import (IO, TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Tuple, Union)
 
 from elftools.elf.elffile import ELFFile
@@ -55,6 +58,7 @@ class FileProgrammer(object):
     - Binary (.bin)
     - Intel Hex (.hex)
     - ELF (.elf or .axf)
+    - Motorola S-record (.srec)
     """
     def __init__(self,
             session: "Session",
@@ -101,6 +105,7 @@ class FileProgrammer(object):
             'bin': self._program_bin,
             'elf': self._program_elf,
             'hex': self._program_hex,
+            'srec': self._program_srec,
             }
 
     def program(self, file_or_path: Union[str, IO[bytes]], file_format: Optional[str] = None, **kwargs: Any):
@@ -108,9 +113,9 @@ class FileProgrammer(object):
 
         @param self
         @param file_or_path Either a string that is a path to a file, or a file-like object.
-        @param file_format Optional file format name, one of "bin", "hex", "elf", "axf". If not provided,
-            the file's extension will be used. If a file object is passed for _file_or_path_ then
-            this parameter must be used to set the format.
+        @param file_format Optional file format name, one of "bin", "hex", "elf", "axf", or "srec". 
+            If not provided, the file's extension will be used. If a file object is passed for _file_or_path_ 
+            then this parameter must be used to set the format.
         @param kwargs Optional keyword arguments for format-specific parameters.
 
         The only current format-specific keyword parameters are for the binary format:
@@ -158,8 +163,8 @@ class FileProgrammer(object):
         # Open the file if a path was provided.
         if is_path:
             mode = 'rb'
-            if file_format == 'hex':
-                # hex file must be read as plain text file
+            if file_format == 'hex' or file_format == 'srec':
+                # hex and srec files must be read as plain text file
                 mode = 'r'
             assert isinstance(file_or_path, str)
             file_obj = open(file_or_path, mode)
@@ -174,7 +179,15 @@ class FileProgrammer(object):
         finally:
             if is_path and file_obj is not None:
                 file_obj.close()
+                
+    def _program_srec(self, file_obj: IO[bytes], **kwargs: Any) -> None:
+        """@brief SREC file format loader"""
+        assert self._loader
 
+        bf = bincopy.BinFile()
+        bf.add_srec(file_obj.read())
+        self._program_hex(io.StringIO(bf.as_ihex()), **kwargs)
+    
     def _program_bin(self, file_obj: IO[bytes], **kwargs: Any) -> None:
         """@brief Binary file format loader"""
         assert self._loader
